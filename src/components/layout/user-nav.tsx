@@ -40,8 +40,6 @@ export function UserNav() {
     if (!auth) return;
     try {
       await signOut(auth);
-      // The onAuthStateChanged listener in the layout will handle the redirect.
-      // We can also push manually for a faster perceived redirect.
       router.push('/login');
     } catch (error) {
       console.error("Error signing out:", error);
@@ -77,12 +75,12 @@ export function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <Link href="/dashboard/profile" passHref>
-            <DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/dashboard/profile">
               <UserIcon />
               Profile
-            </DropdownMenuItem>
-          </Link>
+            </Link>
+          </DropdownMenuItem>
           <DropdownMenuItem>
             <Star />
             Credits
