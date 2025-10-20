@@ -37,8 +37,11 @@ export function UserNav() {
   const { data: userProfile, isLoading } = useDoc<UserProfile>(userProfileRef);
 
   const handleSignOut = async () => {
+    if (!auth) return;
     try {
       await signOut(auth);
+      // The onAuthStateChanged listener in the layout will handle the redirect.
+      // We can also push manually for a faster perceived redirect.
       router.push('/login');
     } catch (error) {
       console.error("Error signing out:", error);
