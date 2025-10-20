@@ -65,7 +65,11 @@ export default function SignupPage() {
       if (result.user.displayName && result.user.email) {
         createInitialUserProfile(result.user, result.user.displayName, result.user.email);
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error.code === 'auth/popup-closed-by-user') {
+        setIsLoading(false);
+        return;
+      }
       console.error("Error signing up with Google", error);
       toast({
         title: "Sign Up Error",

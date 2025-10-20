@@ -39,7 +39,12 @@ export default function LoginPage() {
     try {
       await signInWithPopup(auth, provider);
       // onAuthStateChanged will handle redirect
-    } catch (error) {
+    } catch (error: any) {
+      // Don't show an error if the user closes the popup
+      if (error.code === 'auth/popup-closed-by-user') {
+        setIsLoading(false);
+        return;
+      }
       console.error("Error signing in with Google", error);
       toast({
         title: "Sign In Error",
