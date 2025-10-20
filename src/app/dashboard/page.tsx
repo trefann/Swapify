@@ -37,9 +37,9 @@ export default function DashboardPage() {
 
   const upcomingSessionsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
+    // Query the user's own scheduled_sessions subcollection
     return query(
-        collection(firestore, 'scheduled_sessions'), 
-        where('participants', 'array-contains', user.uid),
+        collection(firestore, `users/${user.uid}/scheduled_sessions`), 
         where('startTime', '>', new Date()),
         orderBy('startTime', 'asc'),
         limit(5)

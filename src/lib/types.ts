@@ -49,4 +49,5 @@ export type ScheduledSession = {
   startTime: Timestamp;
   endTime: Timestamp;
   swapRequestId: string;
+  userId?: string; // Optional: denormalized for subcollection queries
 }

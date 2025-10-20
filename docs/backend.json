@@ -114,6 +114,10 @@
       "schema": { "$ref": "#/entities/UserProfile" },
       "description": "Stores user profiles. Uses path-based ownership for private user data."
     },
+    "/users/{userId}/scheduled_sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/ScheduledSession" },
+      "description": "Stores a reference to a scheduled session for a specific user, allowing for secure and efficient queries."
+    },
     "/skills/{skillId}": {
       "schema": { "$ref": "#/entities/Skill" },
       "description": "Stores skills available in the SkillSwap application."
@@ -128,7 +132,7 @@
     },
      "/scheduled_sessions/{sessionId}": {
       "schema": { "$ref": "#/entities/ScheduledSession" },
-      "description": "Stores scheduled skill swap sessions. Includes a 'participants' array for query purposes."
+      "description": "Stores the canonical scheduled skill swap sessions. This is the source of truth for a session."
     }
   }
 }
