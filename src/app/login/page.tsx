@@ -1,3 +1,5 @@
+'use client';
+
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -12,8 +14,46 @@ import { Label } from "@/components/ui/label"
 import { BookOpen } from "lucide-react"
 import Link from "next/link"
 import { Icons } from "@/components/icons"
+import { useAuth, useUser } from "@/firebase";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { initiateEmailSignIn } from "@/firebase/non-blocking-login";
 
 export default function LoginPage() {
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleGoogleSignIn = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Error signing in with Google", error);
+    }
+  };
+
+  const handleEmailSignIn = () => {
+    initiateEmailSignIn(auth, email, password);
+  };
+
+  useEffect(() => {
+    if (user) {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
+
+  if (isUserLoading) {
+    return <div>Loading...</div>;
+  }
+  
+  if (user) {
+    return null;
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="w-full max-w-sm">
@@ -31,13 +71,13 @@ export default function LoginPage() {
           <CardContent className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="m@example.com" />
+              <Input id="email" type="email" placeholder="m@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" />
+              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
-            <Button className="w-full">Sign In</Button>
+            <Button className="w-full" onClick={handleEmailSignIn}>Sign In</Button>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <div className="relative w-full">
@@ -50,7 +90,7 @@ export default function LoginPage() {
                 </span>
               </div>
             </div>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" onClick={handleGoogleSignIn}>
               <Icons.google className="mr-2 h-4 w-4" />
               Google
             </Button>
