@@ -1,12 +1,14 @@
-export type User = {
+import { Timestamp } from "firebase/firestore";
+
+export type UserProfile = {
   id: string;
-  name: string;
+  displayName: string;
   email: string;
-  avatarUrl: string;
+  profilePicture: string;
   bio: string;
   credits: number;
-  skillsToTeach: string[];
-  skillsToLearn: string[];
+  skillsOffered: {id: string, name: string}[];
+  skillsWanted: {id: string, name: string}[];
   availability: string[];
   rating: number;
 };
@@ -14,35 +16,37 @@ export type User = {
 export type Skill = {
   id: string;
   name: string;
+  description: string;
   category: string;
-  user: User;
+  userId: string; // Reference to the UserProfile who offers this skill
   imageUrl: string;
   imageHint: string;
 };
 
 export type SwapRequest = {
   id: string;
-  fromUser: User;
-  toUser: User;
-  offeredSkill: string;
-  requestedSkill: string;
-  proposedDate: Date;
+  requesterId: string; // UID of the user making the request
+  receiverId: string; // UID of the user receiving the request
+  skillId: string; // ID of the skill being requested (the one the requester wants to learn)
   status: 'pending' | 'accepted' | 'declined' | 'completed' | 'cancelled';
-  message: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  message?: string; // Optional initial message
 };
 
-export type Message = {
+export type ChatMessage = {
     id: string;
     swapRequestId: string;
     senderId: string;
-    content: string;
-    timestamp: Date;
+    message: string;
+    timestamp: Timestamp;
 };
 
 export type ScheduledSession = {
   id: string;
   title: string;
-  participant: User;
-  startTime: Date;
-  endTime: Date;
+  participants: string[]; // Array of UIDs
+  startTime: Timestamp;
+  endTime: Timestamp;
+  swapRequestId: string;
 }

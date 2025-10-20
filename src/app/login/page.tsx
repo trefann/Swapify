@@ -15,29 +15,52 @@ import { BookOpen } from "lucide-react"
 import Link from "next/link"
 import { Icons } from "@/components/icons"
 import { useAuth, useUser } from "@/firebase";
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { initiateEmailSignIn } from "@/firebase/non-blocking-login";
+import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
   const auth = useAuth();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const { toast } = useToast();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
+    setIsLoading(true);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
+      // onAuthStateChanged will handle redirect
     } catch (error) {
       console.error("Error signing in with Google", error);
+      toast({
+        title: "Sign In Error",
+        description: "Could not sign in with Google. Please try again.",
+        variant: "destructive"
+      })
+      setIsLoading(false);
     }
   };
 
-  const handleEmailSignIn = () => {
-    initiateEmailSignIn(auth, email, password);
+  const handleEmailSignIn = async () => {
+    setIsLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged will handle redirect
+    } catch (error: any) {
+      console.error("Error signing in with email:", error);
+      toast({
+        title: "Sign In Error",
+        description: error.message || "Invalid email or password. Please try again.",
+        variant: "destructive"
+      });
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -47,7 +70,11 @@ export default function LoginPage() {
   }, [user, router]);
 
   if (isUserLoading) {
-    return <div>Loading...</div>;
+    return (
+         <div className="flex min-h-screen flex-col items-center justify-center">
+             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+    );
   }
   
   if (user) {
@@ -71,13 +98,15 @@ export default function LoginPage() {
           <CardContent className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="m@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input id="email" type="email" placeholder="m@example.com" value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} />
             </div>
-            <Button className="w-full" onClick={handleEmailSignIn}>Sign In</Button>
+            <Button className="w-full" onClick={handleEmailSignIn} disabled={isLoading}>
+                {isLoading ? 'Signing In...' : 'Sign In'}
+            </Button>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <div className="relative w-full">
@@ -90,7 +119,7 @@ export default function LoginPage() {
                 </span>
               </div>
             </div>
-            <Button variant="outline" className="w-full" onClick={handleGoogleSignIn}>
+            <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading}>
               <Icons.google className="mr-2 h-4 w-4" />
               Google
             </Button>

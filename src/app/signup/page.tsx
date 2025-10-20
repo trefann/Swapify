@@ -14,32 +14,81 @@ import { Label } from "@/components/ui/label"
 import { BookOpen } from "lucide-react"
 import Link from "next/link"
 import { Icons } from "@/components/icons"
-import { useAuth, useUser } from "@/firebase";
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { useAuth, useUser, useFirestore } from "@/firebase";
+import { GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { initiateEmailSignUp } from "@/firebase/non-blocking-login";
+import { doc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useToast } from "@/hooks/use-toast";
+
 
 export default function SignupPage() {
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const { toast } = useToast();
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const createInitialUserProfile = (user: any, displayName: string, email: string) => {
+    if (!firestore) return;
+    const userProfileRef = doc(firestore, "users", user.uid);
+    const newUserProfile = {
+      id: user.uid,
+      displayName: displayName,
+      email: email,
+      profilePicture: user.photoURL || `https://picsum.photos/seed/${user.uid}/200/200`,
+      bio: "Welcome to SkillSwap! Tell everyone a little bit about yourself.",
+      credits: 5, // Starting credits
+      skillsOffered: [],
+      skillsWanted: [],
+      availability: ["Weekdays 6pm-9pm EST", "Weekends 10am-2pm EST"],
+      rating: 0,
+    };
+    // Use non-blocking write
+    setDocumentNonBlocking(userProfileRef, newUserProfile, { merge: true });
+  }
 
   const handleGoogleSignUp = async () => {
+    setIsLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      // The onAuthStateChanged listener will handle routing, but we create the profile here
+      if (result.user.displayName && result.user.email) {
+        createInitialUserProfile(result.user, result.user.displayName, result.user.email);
+      }
     } catch (error) {
       console.error("Error signing up with Google", error);
+      toast({
+        title: "Sign Up Error",
+        description: "Could not sign up with Google. Please try again.",
+        variant: "destructive"
+      })
+      setIsLoading(false);
     }
   };
 
-  const handleEmailSignUp = () => {
-    // In a real app, you'd also update the user's profile with the name
-    initiateEmailSignUp(auth, email, password);
+  const handleEmailSignUp = async () => {
+    setIsLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(userCredential.user, { displayName: name });
+      createInitialUserProfile(userCredential.user, name, email);
+    } catch (error: any) {
+      console.error("Error signing up with email:", error);
+      toast({
+        title: "Sign Up Error",
+        description: error.message || "Could not create your account. Please try again.",
+        variant: "destructive"
+      });
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -49,9 +98,14 @@ export default function SignupPage() {
   }, [user, router]);
 
   if (isUserLoading) {
-    return <div>Loading...</div>;
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center">
+             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+    );
   }
   
+  // Don't show page if user is already logged in
   if (user) {
     return null;
   }
@@ -73,17 +127,19 @@ export default function SignupPage() {
           <CardContent className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="name">Name</Label>
-              <Input id="name" placeholder="Alex Doe" value={name} onChange={(e) => setName(e.target.value)} />
+              <Input id="name" placeholder="Alex Doe" value={name} onChange={(e) => setName(e.target.value)} disabled={isLoading} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="m@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input id="email" type="email" placeholder="m@example.com" value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} />
             </div>
-            <Button className="w-full" onClick={handleEmailSignUp}>Create Account</Button>
+            <Button className="w-full" onClick={handleEmailSignUp} disabled={isLoading}>
+                {isLoading ? 'Creating Account...' : 'Create Account'}
+            </Button>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <div className="relative w-full">
@@ -96,7 +152,7 @@ export default function SignupPage() {
                 </span>
               </div>
             </div>
-            <Button variant="outline" className="w-full" onClick={handleGoogleSignUp}>
+            <Button variant="outline" className="w-full" onClick={handleGoogleSignUp} disabled={isLoading}>
               <Icons.google className="mr-2 h-4 w-4" />
               Google
             </Button>

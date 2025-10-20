@@ -1,3 +1,4 @@
+'use client';
 import Link from 'next/link';
 import {
   Avatar,
@@ -15,25 +16,59 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { LogOut, Settings, Star, User as UserIcon } from "lucide-react"
-import { currentUser } from '@/lib/data'
+import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { signOut } from 'firebase/auth';
+import { doc } from 'firebase/firestore';
+import type { UserProfile } from '@/lib/types';
+import { useRouter } from 'next/navigation';
+
 
 export function UserNav() {
+  const { user } = useUser();
+  const auth = useAuth();
+  const firestore = useFirestore();
+  const router = useRouter();
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+
+  const { data: userProfile, isLoading } = useDoc<UserProfile>(userProfileRef);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      router.push('/login');
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  }
+
+  if (isLoading || !userProfile) {
+    return (
+        <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+            <div className="h-9 w-9 rounded-full bg-muted animate-pulse"></div>
+        </Button>
+    )
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-9 w-9 rounded-full">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
-            <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
+            <AvatarImage src={userProfile.profilePicture} alt={userProfile.displayName} />
+            <AvatarFallback>{userProfile.displayName?.charAt(0)}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{currentUser.name}</p>
+            <p className="text-sm font-medium leading-none">{userProfile.displayName}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {currentUser.email}
+              {userProfile.email}
             </p>
           </div>
         </DropdownMenuLabel>
@@ -48,7 +83,7 @@ export function UserNav() {
           <DropdownMenuItem>
             <Star />
             Credits
-            <span className="ml-auto">{currentUser.credits}</span>
+            <span className="ml-auto">{userProfile.credits}</span>
           </DropdownMenuItem>
           <DropdownMenuItem>
             <Settings />
@@ -56,12 +91,10 @@ export function UserNav() {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-         <Link href="/login" passHref>
-            <DropdownMenuItem>
-                <LogOut />
-                Log out
-            </DropdownMenuItem>
-        </Link>
+         <DropdownMenuItem onClick={handleSignOut}>
+            <LogOut />
+            Log out
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

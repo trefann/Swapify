@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { scheduledSessions, users } from "@/lib/data";
-import type { ScheduledSession } from "@/lib/types";
+import { useCollection, useFirestore, useUser, useMemoFirebase } from "@/firebase";
+import type { ScheduledSession, UserProfile } from "@/lib/types";
 import { add, format, isSameDay } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -26,27 +26,48 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { checkScheduleConflict } from '@/ai/flows/smart-scheduler';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { collection, query, where, Timestamp } from 'firebase/firestore';
 
 export default function SchedulePage() {
+  const { user } = useUser();
+  const firestore = useFirestore();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [isChecking, setIsChecking] = useState(false);
   const [conflict, setConflict] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const sessionsForSelectedDay = scheduledSessions.filter(session =>
-    date && isSameDay(session.startTime, date)
-  );
+  const sessionsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'scheduled_sessions'), where('participants', 'array-contains', user.uid));
+  }, [firestore, user]);
+  const { data: scheduledSessions, isLoading: isLoadingSessions } = useCollection<ScheduledSession>(sessionsQuery);
+  
+  const usersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'users');
+  }, [firestore]);
+  const { data: users, isLoading: isLoadingUsers } = useCollection<UserProfile>(usersQuery);
+
+  const sessionsForSelectedDay = scheduledSessions?.filter(session =>
+    date && isSameDay((session.startTime as Timestamp).toDate(), date)
+  ) || [];
 
   const handleCheckConflict = async () => {
     setIsChecking(true);
     setConflict(null);
+    if (!scheduledSessions) {
+        toast({ title: "No sessions loaded", variant: "destructive" });
+        setIsChecking(false);
+        return;
+    }
+    
     // Dummy data for the conflict check
     const proposedStartTime = add(new Date(), { days: 1, hours: 2 }).toISOString();
     const proposedEndTime = add(new Date(), { days: 1, hours: 3 }).toISOString();
     
     const existingSchedulesForAI = scheduledSessions.map(s => ({
-        startTime: s.startTime.toISOString(),
-        endTime: s.endTime.toISOString(),
+        startTime: (s.startTime as Timestamp).toDate().toISOString(),
+        endTime: (s.endTime as Timestamp).toDate().toISOString(),
     }));
 
     try {
@@ -75,6 +96,8 @@ export default function SchedulePage() {
         setIsChecking(false);
     }
   }
+  
+  const isLoading = isLoadingSessions || isLoadingUsers;
 
   return (
     <div className="flex flex-col gap-8">
@@ -92,6 +115,7 @@ export default function SchedulePage() {
                 selected={date}
                 onSelect={setDate}
                 className="rounded-md"
+                disabled={isLoading}
               />
             </CardContent>
           </Card>
@@ -102,7 +126,7 @@ export default function SchedulePage() {
               <CardTitle>Sessions for {date ? format(date, "PPP") : "Today"}</CardTitle>
                <Dialog>
                 <DialogTrigger asChild>
-                    <Button><PlusCircle /> New Session</Button>
+                    <Button disabled={isLoading}><PlusCircle /> New Session</Button>
                 </DialogTrigger>
                 <DialogContent>
                     <DialogHeader>
@@ -121,7 +145,7 @@ export default function SchedulePage() {
                                     <SelectValue placeholder="Select a user" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                                    {users?.filter(u => u.id !== user?.uid).map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -168,24 +192,35 @@ export default function SchedulePage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {sessionsForSelectedDay.length > 0 ? (
-                  sessionsForSelectedDay.map((session: ScheduledSession) => (
-                    <div key={session.id} className="flex items-center justify-between p-3 rounded-lg bg-background hover:bg-secondary">
-                        <div className="flex items-center gap-4">
-                            <Avatar className="h-12 w-12">
-                                <AvatarImage src={session.participant.avatarUrl} alt={session.participant.name} />
-                                <AvatarFallback>{session.participant.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                                <p className="font-semibold">{session.title}</p>
-                                <p className="text-sm text-muted-foreground">with {session.participant.name}</p>
+                {isLoading ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                        <p>Loading sessions...</p>
+                    </div>
+                ) : sessionsForSelectedDay.length > 0 ? (
+                  sessionsForSelectedDay.map((session: ScheduledSession) => {
+                    const otherUserId = session.participants.find(p => p !== user?.uid);
+                    const participant = users?.find(u => u.id === otherUserId);
+                    if (!participant) return null;
+
+                    return (
+                        <div key={session.id} className="flex items-center justify-between p-3 rounded-lg bg-background hover:bg-secondary">
+                            <div className="flex items-center gap-4">
+                                <Avatar className="h-12 w-12">
+                                    <AvatarImage src={participant.profilePicture} alt={participant.displayName} />
+                                    <AvatarFallback>{participant.displayName?.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <p className="font-semibold">{session.title}</p>
+                                    <p className="text-sm text-muted-foreground">with {participant.displayName}</p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className="font-medium text-sm">{format((session.startTime as Timestamp).toDate(), "p")} - {format((session.endTime as Timestamp).toDate(), "p")}</p>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <p className="font-medium text-sm">{format(session.startTime, "p")} - {format(session.endTime, "p")}</p>
-                        </div>
-                    </div>
-                  ))
+                    )
+                  })
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
                     <p>No sessions scheduled for this day.</p>
