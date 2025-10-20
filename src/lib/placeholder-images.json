@@ -1,3 +1,58 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "avatar1",
+      "description": "User avatar 1",
+      "imageUrl": "https://images.unsplash.com/photo-1539125530496-3ca408f9c2d9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxwcm9maWxlJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzYwODM1MDcwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "profile portrait"
+    },
+    {
+      "id": "avatar2",
+      "description": "User avatar 2",
+      "imageUrl": "https://images.unsplash.com/photo-1539605480396-a61f99da1041?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8cHJvZmlsZSUyMHBvcnRyYWl0fGVufDB8fHx8MTc2MDgzNTA3MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "profile portrait"
+    },
+    {
+      "id": "avatar3",
+      "description": "User avatar 3",
+      "imageUrl": "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxwcm9maWxlJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzYwODM1MDcwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "profile portrait"
+    },
+    {
+      "id": "avatar4",
+      "description": "User avatar 4",
+      "imageUrl": "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxwcm9maWxlJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzYwODM1MDcwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "profile portrait"
+    },
+    {
+      "id": "avatar5",
+      "description": "User avatar 5",
+      "imageUrl": "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxwcm9maWxlJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzYwODM1MDcwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "profile portrait"
+    },
+    {
+      "id": "skill-placeholder-1",
+      "description": "A placeholder image for a coding skill card",
+      "imageUrl": "https://images.unsplash.com/photo-1644088379091-d574269d422f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxhYnN0cmFjdCUyMHRlY2h8ZW58MHx8fHwxNzYwODU1MzcxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract tech"
+    },
+    {
+      "id": "skill-placeholder-2",
+      "description": "A placeholder image for a design skill card",
+      "imageUrl": "https://images.unsplash.com/photo-1636760243166-c2c0c62ba633?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxhYnN0cmFjdCUyMGRlc2lnbnxlbnwwfHx8fDE3NjA4NDc1MTB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract design"
+    },
+    {
+      "id": "skill-placeholder-3",
+      "description": "A placeholder image for a music skill card",
+      "imageUrl": "https://images.unsplash.com/photo-1744390166658-afd6391e914c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxhYnN0cmFjdCUyMG11c2ljfGVufDB8fHx8MTc2MDg1NTM5NHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract music"
+    },
+    {
+      "id": "skill-placeholder-4",
+      "description": "A placeholder image for a cooking skill card",
+      "imageUrl": "https://images.unsplash.com/photo-1610393042684-bf4002727d1f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxhYnN0cmFjdCUyMGZvb2R8ZW58MHx8fHwxNzYwOTM5Njk4fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract food"
+    }
+  ]
 }

@@ -1,0 +1,165 @@
+import type { User, Skill, SwapRequest, ScheduledSession } from './types';
+
+export const users: User[] = [
+  {
+    id: '1',
+    name: 'Alex Doe',
+    email: 'alex.doe@example.com',
+    avatarUrl: 'https://picsum.photos/seed/101/200/200',
+    bio: 'Full-stack developer with a passion for teaching React and Node.js. Looking to learn Spanish in my free time.',
+    credits: 5,
+    skillsToTeach: ['React', 'Node.js', 'TypeScript'],
+    skillsToLearn: ['Spanish', 'Guitar'],
+    availability: ['Weekdays 6pm-9pm EST', 'Weekends 10am-2pm EST'],
+    rating: 4.8,
+  },
+  {
+    id: '2',
+    name: 'Maria Garcia',
+    email: 'maria.g@example.com',
+    avatarUrl: 'https://picsum.photos/seed/102/200/200',
+    bio: 'Native Spanish speaker and professional musician. I can teach you Spanish or how to play the guitar. I want to learn how to code!',
+    credits: 3,
+    skillsToTeach: ['Spanish', 'Guitar', 'Salsa Dancing'],
+    skillsToLearn: ['React', 'Web Design'],
+    availability: ['Mon-Wed 7pm-9pm EST'],
+    rating: 4.9,
+  },
+  {
+    id: '3',
+    name: 'Sam Wilson',
+    email: 'sam.w@example.com',
+    avatarUrl: 'https://picsum.photos/seed/103/200/200',
+    bio: 'UX/UI designer with a knack for creating beautiful and intuitive interfaces. Interested in learning how to bake sourdough.',
+    credits: 10,
+    skillsToTeach: ['Figma', 'UI/UX Principles', 'Web Design'],
+    skillsToLearn: ['Baking', 'Photography'],
+    availability: ['Weekends 1pm-5pm EST'],
+    rating: 4.7,
+  },
+  {
+    id: '4',
+    name: 'Chen Li',
+    email: 'chen.li@example.com',
+    avatarUrl: 'https://picsum.photos/seed/104/200/200',
+    bio: 'Professional chef and passionate home baker. Let me teach you the secrets of the kitchen! I\'d love to learn to play piano.',
+    credits: 8,
+    skillsToTeach: ['Baking', 'Italian Cuisine', 'Knife Skills'],
+    skillsToLearn: ['Piano', 'Node.js'],
+    availability: ['Tuesdays 5pm-8pm EST', 'Saturdays 11am-3pm EST'],
+    rating: 5.0,
+  },
+];
+
+export const currentUser = users[0];
+
+export const skills: Skill[] = [
+  {
+    id: 's1',
+    name: 'React',
+    category: 'Programming',
+    user: users[0],
+    imageUrl: 'https://picsum.photos/seed/skill1/600/400',
+    imageHint: 'abstract tech',
+  },
+  {
+    id: 's2',
+    name: 'Spanish',
+    category: 'Language',
+    user: users[1],
+    imageUrl: 'https://picsum.photos/seed/skill5/600/400',
+    imageHint: 'spain flag',
+  },
+  {
+    id: 's3',
+    name: 'Web Design',
+    category: 'Design',
+    user: users[2],
+    imageUrl: 'https://picsum.photos/seed/skill2/600/400',
+    imageHint: 'abstract design',
+  },
+  {
+    id: 's4',
+    name: 'Baking',
+    category: 'Culinary',
+    user: users[3],
+    imageUrl: 'https://picsum.photos/seed/skill4/600/400',
+    imageHint: 'bread loaf',
+  },
+  {
+    id: 's5',
+    name: 'Guitar',
+    category: 'Music',
+    user: users[1],
+    imageUrl: 'https://picsum.photos/seed/skill3/600/400',
+    imageHint: 'acoustic guitar',
+  },
+  {
+    id: 's6',
+    name: 'Node.js',
+    category: 'Programming',
+    user: users[0],
+    imageUrl: 'https://picsum.photos/seed/skill6/600/400',
+    imageHint: 'server code',
+  },
+];
+
+export const swapRequests: SwapRequest[] = [
+  {
+    id: 'r1',
+    fromUser: users[1],
+    toUser: users[0],
+    offeredSkill: 'Spanish',
+    requestedSkill: 'React',
+    proposedDate: new Date('2024-08-15T18:00:00'),
+    status: 'pending',
+    message: 'Hola Alex! I would love to help you with your Spanish in exchange for some React lessons. Does this time work for you?',
+  },
+  {
+    id: 'r2',
+    fromUser: users[0],
+    toUser: users[2],
+    offeredSkill: 'React',
+    requestedSkill: 'Web Design',
+    proposedDate: new Date('2024-08-20T19:00:00'),
+    status: 'accepted',
+    message: 'Hey Sam, saw you wanted to learn React. I\'d be happy to teach you. Let\'s trade for some design tips!',
+  },
+  {
+    id: 'r3',
+    fromUser: users[3],
+    toUser: users[0],
+    offeredSkill: 'Baking',
+    requestedSkill: 'Node.js',
+    proposedDate: new Date('2024-08-18T10:00:00'),
+    status: 'declined',
+    message: 'Hi Alex! I\'m interested in learning Node.js. Let\'s bake something amazing in return!',
+  },
+  {
+    id: 'r4',
+    fromUser: users[0],
+    toUser: users[1],
+    offeredSkill: 'TypeScript',
+    requestedSkill: 'Guitar',
+    proposedDate: new Date('2024-09-01T14:00:00'),
+    status: 'pending',
+    message: 'Hey Maria, I want to learn guitar. Can I offer some TypeScript tutoring?',
+  },
+];
+
+export const scheduledSessions: ScheduledSession[] = [
+    {
+        id: 'ss1',
+        title: 'React for Web Design Principles',
+        participant: users[2],
+        startTime: new Date(new Date().setDate(new Date().getDate() + 2)),
+        endTime: new Date(new Date(new Date().setDate(new Date().getDate() + 2)).setHours(new Date().getHours() + 1)),
+    },
+    {
+        id: 'ss2',
+        title: 'Guitar Basics',
+        participant: users[1],
+        startTime: new Date(new Date().setDate(new Date().getDate() + 5)),
+        endTime: new Date(new Date(new Date().setDate(new Date().getDate() + 5)).setHours(new Date().getHours() + 1)),
+    }
+]
