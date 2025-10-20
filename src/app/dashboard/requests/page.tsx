@@ -45,6 +45,7 @@ export default function RequestsPage() {
     const userIds = new Set<string>();
     (incomingRequests || []).forEach(r => userIds.add(r.requesterId));
     (outgoingRequests || []).forEach(r => userIds.add(r.receiverId));
+    if (userIds.size === 0) return [];
     return Array.from(userIds);
   }, [incomingRequests, outgoingRequests]);
 
@@ -58,6 +59,7 @@ export default function RequestsPage() {
     const skillIds = new Set<string>();
     (incomingRequests || []).forEach(r => skillIds.add(r.skillId));
     (outgoingRequests || []).forEach(r => skillIds.add(r.skillId));
+    if (skillIds.size === 0) return [];
     return Array.from(skillIds);
   }, [incomingRequests, outgoingRequests]);
 
@@ -82,9 +84,6 @@ export default function RequestsPage() {
     const otherUser = users?.find(u => u.id === otherUserId);
     const requestedSkill = skills?.find(s => s.id === request.skillId);
     
-    // The skill being offered is one of the "otherUser's" skills. For a more robust app, this would be a direct reference.
-    const skillBeingOffered = skills?.find(s => s.userId === otherUserId); // This is a simplification
-
     if (!otherUser || !requestedSkill) {
       return (
         <TableRow>
@@ -94,6 +93,9 @@ export default function RequestsPage() {
         </TableRow>
       )
     }
+
+    // The skill being requested is from the receiver (for outgoing) or current user (for incoming)
+    const mySkillName = skills?.find(s => s.userId === (type === 'incoming' ? user?.uid : otherUser.id))?.name || 'Your Skill';
 
     return (
       <TableRow key={request.id}>
@@ -108,7 +110,7 @@ export default function RequestsPage() {
         </TableCell>
         <TableCell>
             <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="secondary">{skillBeingOffered?.name || 'Their Skill'}</Badge>
+                <Badge variant="secondary">{type === 'outgoing' ? mySkillName : 'Your Skill'}</Badge>
                 <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
                 <Badge variant="default">{requestedSkill.name}</Badge>
             </div>
