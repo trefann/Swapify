@@ -66,9 +66,15 @@ export default function LoginPage() {
       // onAuthStateChanged will handle redirect
     } catch (error: any) {
       console.error("Error signing in with email:", error);
+      let description = "An unknown error occurred. Please try again.";
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+          description = "Invalid email or password. Please check your credentials and try again.";
+      } else {
+          description = error.message;
+      }
       toast({
         title: "Sign In Error",
-        description: error.message || "Invalid email or password. Please try again.",
+        description: description,
         variant: "destructive"
       });
       setIsLoading(false);
