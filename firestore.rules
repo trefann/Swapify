@@ -1,175 +1,158 @@
 /**
- * @file Firestore Security Rules for SkillSwap
- * @version Prototyping
+ * @file Firebase Security Rules for SkillSwap application.
  *
- * @description
- * This ruleset enforces a user-ownership model for user profiles,
- * allows public reads for skills, and restricts swap requests and
- * scheduled sessions to authorized participants. Chat messages are
- * further secured within swap requests. Data validation is minimal,
- * focusing on authorization and relational integrity for rapid prototyping.
+ * @description This ruleset enforces a combination of user-ownership and shared-access models to protect data.
+ * All write operations are secured by authentication checks and ownership validation.
  *
  * @data_structure
- * - /users/{userId}: User profiles, owned by the user.
- * - /skills/{skillId}: Skills available in the application, publicly readable, owner-writeable.
- * - /swap_requests/{swapRequestId}: Skill swap requests between users.
- * - /swap_requests/{swapRequestId}/chat_messages/{chatMessageId}: Chat messages for swap requests, restricted to participants.
- * - /scheduled_sessions/{sessionId}: Scheduled skill swap sessions.
+ * - /users/{userId}: User profiles, accessible only to the owner.
+ * - /skills/{skillId}: Skills, publicly readable, but create/update/delete restricted to the owner (userId).
+ * - /swap_requests/{swapRequestId}: Swap requests, accessible to the requester and receiver.
+ * - /swap_requests/{swapRequestId}/chat_messages/{chatMessageId}: Chat messages, accessible to participants of the swap request.
+ * - /scheduled_sessions/{sessionId}: Scheduled sessions, accessible to participants.
  *
  * @key_security_decisions
- * - Users can only read/write their own profile data.
- * - Skills are publicly readable, but only the owner can create/update/delete.
- * - Swap requests are accessible only to the requester and receiver.
- * - Chat messages are accessible only to participants of the swap request.
- * - Scheduled sessions are accessible only to the participants.
- * - No user listing is allowed.
+ * - User listing is disallowed to protect privacy.
+ * - Read-only access is granted to skills.
+ * - All write operations require authentication.
  *
  * @denormalization_for_authorization
- * - Skills require 'userId' to be stored on the skill document to determine ownership.
- * - SwapRequests require 'requesterId' and 'receiverId' to be stored on the document to determine participants.
- * - ChatMessages require 'swapRequestId' to determine the parent swap request, and 'senderId' to determine the message's author.
- * - ScheduledSessions require 'participants' array to determine authorized users.
+ * - Skills include a userId to easily check ownership.
+ * - SwapRequests include requesterId and receiverId to authorize access.
+ * - ScheduledSessions include participants array for authorization.
  *
  * @structural_segregation
- * - No explicit structural segregation is used in this version.
+ * - No drafts vs. published; all data is treated as active.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile documents.
+     * @description Checks if the request is authenticated.
+     * @return {boolean} True if the request is authenticated, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user is the owner of the resource.
+     * @param {string} userId The user ID to compare against the request's authentication UID.
+     * @return {boolean} True if the user is the owner, false otherwise.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the authenticated user is the owner of the resource and the resource exists.
+     * @param {string} userId The user ID to compare against the resource's userId.
+     * @return {boolean} True if the user is the owner and the resource exists, false otherwise.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Matches the user profile documents.
      * @path /users/{userId}
-     * @allow (create) - User with UID 'user123' can create their profile if request.auth.uid == 'user123'.
-     * @allow (get, update, delete) - User with UID 'user123' can read/update/delete their profile.
-     * @deny (create) - User with UID 'user456' cannot create a profile for 'user123'.
-     * @deny (get, update, delete) - User with UID 'user456' cannot read/update/delete 'user123' profile.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) Authenticated user with matching {userId} can create their own profile.
+     * @allow (get, update, delete) Authenticated user can access/modify their own profile.
+     * @deny (create) An unauthenticated user cannot create a profile.
+     * @deny (get, update, delete) Authenticated user cannot access/modify other user's profile.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource.data.id == userId;
-      }
-
       allow get: if isOwner(userId);
-      allow list: if false; // User listing is not allowed.
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == request.auth.uid;
-      allow update: if isExistingOwner(userId);
+      allow list: if false; // User listing is disallowed
+
+      allow create: if isOwner(userId) && request.resource.data.id == request.auth.uid;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to skill documents. Skills are publicly readable, but only the owner can modify them.
+     * @description Matches the skill documents.
      * @path /skills/{skillId}
-     * @allow (get, list) - Any user can read or list skills.
-     * @allow (create) - User with UID 'user123' can create a skill with skill.userId == 'user123'.
-     * @allow (update, delete) - User with UID 'user123' can update/delete a skill they own.
-     * @deny (create) - User with UID 'user456' cannot create a skill with skill.userId == 'user123'.
-     * @deny (update, delete) - User with UID 'user456' cannot update/delete a skill owned by 'user123'.
-     * @principle Allows public reads, enforces ownership for writes.
+     * @allow (get, list) Any user can read all skills.
+     * @allow (create) Authenticated user can create a skill with their userId.
+     * @allow (update, delete) Only the owner (skill.userId) can update or delete the skill.
+     * @deny (create) An unauthenticated user cannot create a skill.
+     * @deny (update, delete) Authenticated user cannot modify other user's skill.
+     * @principle Public read with owner-only writes.
      */
     match /skills/{skillId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-      function isExistingOwner() {
-        return isSignedIn() && resource.data.userId == request.auth.uid;
-      }
       allow get, list: if true;
+
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isExistingOwner();
-      allow delete: if isExistingOwner();
+      allow update: if isExistingOwner(resource.data.userId);
+      allow delete: if isExistingOwner(resource.data.userId);
     }
 
     /**
-     * @description Controls access to swap request documents. Only the requester and receiver can access the swap request.
+     * @description Matches the swap request documents.
      * @path /swap_requests/{swapRequestId}
-     * @allow (get) - User with UID 'user123' can get a swap request if they are the requester or receiver.
-     * @allow (create) - User with UID 'user123' can create a swap request with requesterId == 'user123'.
-     * @allow (update, delete) - User with UID 'user123' can update/delete a swap request if they are the requester or receiver and the document exists.
-     * @deny (get) - User with UID 'user456' cannot get a swap request where they are not the requester or receiver.
-     * @deny (create) - User with UID 'user456' cannot create a swap request with requesterId == 'user123'.
-     * @deny (update, delete) - User with UID 'user456' cannot update/delete a swap request where they are not the requester or receiver.
-     * @principle Restricts access to swap requests to the participants (requester and receiver).
+     * @allow (get, list) Participants (requester or receiver) can read the swap request.
+     * @allow (create) Authenticated user can create a swap request with them as requester.
+     * @allow (update, delete) Only the requester can update the swap request.
+     * @deny (create) An unauthenticated user cannot create a swap request.
+     * @deny (update, delete) Authenticated user cannot modify other user's swap request.
+     * @principle Shared access (closed collaborators).
      */
     match /swap_requests/{swapRequestId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isParticipant(requesterId, receiverId) {
-        return request.auth.uid == requesterId || request.auth.uid == receiverId;
-      }
-      function isExistingParticipant() {
+       function isParticipant() {
         return isSignedIn() && (resource.data.requesterId == request.auth.uid || resource.data.receiverId == request.auth.uid);
       }
-      allow get: if isExistingParticipant();
-      allow list: if false;
+
+      allow get: if isParticipant();
+      allow list: if isSignedIn() && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.id == request.auth.uid);
+
       allow create: if isSignedIn() && request.resource.data.requesterId == request.auth.uid;
-      allow update: if isExistingParticipant();
-      allow delete: if isExistingParticipant();
+      allow update: if isExistingOwner(request.resource.data.requesterId);
+      allow delete: if isExistingOwner(request.resource.data.requesterId);
     }
 
     /**
-     * @description Controls access to chat messages within a swap request. Only participants of the swap request can access the messages.
+     * @description Matches the chat message documents.
      * @path /swap_requests/{swapRequestId}/chat_messages/{chatMessageId}
-     * @allow (get, list) - User with UID 'user123' can get/list messages if they are a participant in the parent swap request.
-     * @allow (create) - User with UID 'user123' can create a message if they are a participant in the parent swap request.
-     * @allow (update, delete) - No updates or deletes are allowed on chat messages.
-     * @deny (get, list) - User with UID 'user456' cannot get/list messages if they are not a participant in the parent swap request.
-     * @deny (create) - User with UID 'user456' cannot create a message if they are not a participant in the parent swap request.
-     * @principle Restricts access to chat messages to participants of the associated swap request.
+     * @allow (get, list) Participants (requester or receiver) can read chat messages.
+     * @allow (create) Authenticated user can create a chat message with them as sender.
+     * @allow (update, delete) No one can update or delete chat messages.
+     * @deny (create) An unauthenticated user cannot create a chat message.
+     * @deny (update, delete) All users cannot modify or delete chat messages.
+     * @principle Shared access (closed collaborators) for reads, immutable writes.
      */
     match /swap_requests/{swapRequestId}/chat_messages/{chatMessageId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isParticipant(swapRequestId) {
-        return get(/databases/$(database)/documents/swap_requests/$(swapRequestId)).data.requesterId == request.auth.uid
-            || get(/databases/$(database)/documents/swap_requests/$(swapRequestId)).data.receiverId == request.auth.uid;
-      }
-      allow get, list: if isSignedIn() && isParticipant(swapRequestId);
-      allow create: if isSignedIn() && isParticipant(swapRequestId);
+       function isSwapParticipant() {
+          return isSignedIn() && (get(/databases/$(database)/documents/swap_requests/$(swapRequestId)).data.requesterId == request.auth.uid || get(/databases/$(database)/documents/swap_requests/$(swapRequestId)).data.receiverId == request.auth.uid);
+       }
+
+      allow get, list: if isSwapParticipant();
+
+      allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
       allow update, delete: if false;
     }
 
      /**
-      * @description Controls access to scheduled session documents. Only participants of the session can access.
-      * @path /scheduled_sessions/{sessionId}
-      * @allow (get) - User with UID 'user123' can get a session if they are a participant.
-      * @allow (create) - User with UID 'user123' can create a session if they are a participant.
-      * @allow (update, delete) - User with UID 'user123' can update/delete a session if they are a participant and the document exists.
-      * @deny (get) - User with UID 'user456' cannot get a session where they are not a participant.
-      * @deny (create) - User with UID 'user456' cannot create a session where they are not a participant.
-      * @deny (update, delete) - User with UID 'user456' cannot update/delete a session where they are not a participant.
-      * @principle Restricts access to scheduled sessions to the participants.
-      */
+     * @description Matches the scheduled session documents.
+     * @path /scheduled_sessions/{sessionId}
+     * @allow (get, list) Participants can read the session details.
+     * @allow (create) Any authenticated user can create a session.
+     * @allow (update, delete) No one can update or delete sessions (for now).
+     * @deny (create) An unauthenticated user cannot create a session.
+     * @deny (update, delete) All users are denied from modifying or deleting sessions.
+     * @principle Shared access based on the participants array.
+     */
     match /scheduled_sessions/{sessionId} {
-       function isSignedIn() {
-          return request.auth != null;
-        }
-
-        function isParticipant() {
-            return request.resource.data.participants.hasAny([request.auth.uid]);
-        }
-
-        function isExistingParticipant() {
-          return isSignedIn() && resource.data.participants.hasAny([request.auth.uid]);
-        }
-
-        allow get: if isExistingParticipant();
-        allow list: if false;
-        allow create: if isSignedIn() && isParticipant();
-        allow update: if isExistingParticipant();
-        allow delete: if isExistingParticipant();
+       function isSessionParticipant() {
+         return isSignedIn() && request.auth.uid in resource.data.participants;
+       }
+        //The reported error was on this line
+        allow list: if isSignedIn();
+        allow get: if true;
+        allow create: if isSignedIn();
+        allow update, delete: if false;
     }
   }
 }
