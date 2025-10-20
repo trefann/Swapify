@@ -27,15 +27,15 @@ function ProfileClient() {
 
   const { data: userProfile, isLoading } = useDoc<UserProfile>(userProfileRef);
 
-  const [bio, setBio] = useState(userProfile?.bio || '');
+  const [bio, setBio] = useState('');
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   
   useEffect(() => {
-      if (userProfile?.bio && !bio) {
-        setBio(userProfile.bio);
-      }
-  }, [userProfile?.bio, bio]);
+    if (userProfile?.bio) {
+      setBio(userProfile.bio);
+    }
+  }, [userProfile]);
 
 
   const handleGenerateBio = async () => {
