@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
@@ -18,7 +18,13 @@ const fontHeadline = Poppins({
 export const metadata: Metadata = {
   title: "SkillSwap",
   description: "A marketplace to swap skills and knowledge.",
+  manifest: "/manifest.json",
 };
+
+export const viewport: Viewport = {
+  themeColor: "#151535",
+};
+
 
 export default function RootLayout({
   children,
