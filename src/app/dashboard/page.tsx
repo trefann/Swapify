@@ -8,11 +8,11 @@ import {
 import { useCollection, useDoc, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowRightLeft, Calendar, Star } from "lucide-react";
-import { format } from "date-fns";
+import { format, isAfter } from "date-fns";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { collection, query, where, doc, limit } from "firebase/firestore";
-import type { SwapRequest, ScheduledSession, UserProfile } from "@/lib/types";
+import { collection, query, where, doc, limit, orderBy } from "firebase/firestore";
+import type { SwapRequest, ScheduledSession, UserProfile, Skill } from "@/lib/types";
 
 export default function DashboardPage() {
   const { user } = useUser();
@@ -37,22 +37,32 @@ export default function DashboardPage() {
 
   const upcomingSessionsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    // This is a simplified query. A real implementation would need to query based on user involvement.
-    // This requires a `participants` array field on the session document.
     return query(
         collection(firestore, 'scheduled_sessions'), 
         where('participants', 'array-contains', user.uid),
         where('startTime', '>', new Date()),
+        orderBy('startTime', 'asc'),
         limit(5)
     );
   }, [firestore, user]);
   const { data: upcomingSessions, isLoading: isLoadingSessions } = useCollection<ScheduledSession>(upcomingSessionsQuery);
 
+  const allUsersInvolvedIds = useMemoFirebase(() => {
+    if (!upcomingSessions && !pendingRequests) return [];
+    const userIds = new Set<string>();
+    (upcomingSessions || []).forEach(s => s.participants.forEach(p => userIds.add(p)));
+    (pendingRequests || []).forEach(r => userIds.add(r.requesterId));
+    return Array.from(userIds);
+  },[upcomingSessions, pendingRequests]);
+  
   const usersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'users');
-  }, [firestore]);
+    if(!firestore || allUsersInvolvedIds.length === 0) return null;
+    // Firestore 'in' queries are limited to 30 items. For a real-world app with more items,
+    // you might need to fetch users individually or restructure data.
+    return query(collection(firestore, 'users'), where('id', 'in', allUsersInvolvedIds.slice(0, 30)));
+  }, [firestore, allUsersInvolvedIds]);
   const { data: users, isLoading: isLoadingUsers } = useCollection<UserProfile>(usersQuery);
+
 
   const getUserForEntity = (userId: string) => users?.find(u => u.id === userId);
 
@@ -131,7 +141,7 @@ export default function DashboardPage() {
           <CardContent className="space-y-4">
             {upcomingSessions && upcomingSessions.length > 0 ? (
               upcomingSessions.map((session) => {
-                const otherParticipantId = session.participants.find(p => p !== user.uid);
+                const otherParticipantId = session.participants.find(p => p !== user?.uid);
                 const participant = otherParticipantId ? getUserForEntity(otherParticipantId) : null;
                 
                 if (!participant) return null;
@@ -172,8 +182,7 @@ export default function DashboardPage() {
             {pendingRequests && pendingRequests.length > 0 ? (
               pendingRequests.map((request) => {
                 const fromUser = getUserForEntity(request.requesterId);
-                const skillBeingTaught = fromUser?.skillsOffered?.find(s => s.id === request.skillId);
-
+                
                 if (!fromUser) return null;
 
                 return (

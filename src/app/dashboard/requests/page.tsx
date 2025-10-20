@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import Link from "next/link";
 import { collection, doc, query, where, Timestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { useMemo } from "react";
 
 const statusStyles: { [key: string]: string } = {
   pending: 'bg-yellow-400/20 text-yellow-300',
@@ -40,16 +41,30 @@ export default function RequestsPage() {
   }, [firestore, user]);
   const { data: outgoingRequests, isLoading: isLoadingOutgoing } = useCollection<SwapRequest>(outgoingRequestsQuery);
 
+  const allRelatedUserIds = useMemo(() => {
+    const userIds = new Set<string>();
+    (incomingRequests || []).forEach(r => userIds.add(r.requesterId));
+    (outgoingRequests || []).forEach(r => userIds.add(r.receiverId));
+    return Array.from(userIds);
+  }, [incomingRequests, outgoingRequests]);
+
   const usersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'users');
-  }, [firestore]);
+    if (!firestore || allRelatedUserIds.length === 0) return null;
+    return query(collection(firestore, 'users'), where('id', 'in', allRelatedUserIds.slice(0, 30)));
+  }, [firestore, allRelatedUserIds]);
   const { data: users, isLoading: isLoadingUsers } = useCollection<UserProfile>(usersQuery);
 
+  const allSkillIds = useMemo(() => {
+    const skillIds = new Set<string>();
+    (incomingRequests || []).forEach(r => skillIds.add(r.skillId));
+    (outgoingRequests || []).forEach(r => skillIds.add(r.skillId));
+    return Array.from(skillIds);
+  }, [incomingRequests, outgoingRequests]);
+
   const skillsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'skills');
-  }, [firestore]);
+    if (!firestore || allSkillIds.length === 0) return null;
+    return query(collection(firestore, 'skills'), where('id', 'in', allSkillIds.slice(0, 30)));
+  }, [firestore, allSkillIds]);
   const { data: skills, isLoading: isLoadingSkills } = useCollection<Skill>(skillsQuery);
   
   const handleUpdateRequest = (requestId: string, status: 'accepted' | 'declined') => {
@@ -68,8 +83,7 @@ export default function RequestsPage() {
     const requestedSkill = skills?.find(s => s.id === request.skillId);
     
     // The skill being offered is one of the "otherUser's" skills. For a more robust app, this would be a direct reference.
-    const offeredSkillOwner = type === 'incoming' ? otherUser : users?.find(u => u.id === user?.uid);
-    const skillBeingOffered = skills?.find(s => s.userId === offeredSkillOwner?.id); // This is a simplification
+    const skillBeingOffered = skills?.find(s => s.userId === otherUserId); // This is a simplification
 
     if (!otherUser || !requestedSkill) {
       return (

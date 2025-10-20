@@ -21,15 +21,24 @@ export default function BrowsePage() {
 
   const skillsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
+    // Don't show the current user's own skills
+    if (user) {
+      return query(collection(firestore, 'skills'), where('userId', '!=', user.uid));
+    }
     return collection(firestore, 'skills');
-  }, [firestore]);
+  }, [firestore, user]);
   const { data: skills, isLoading: isLoadingSkills } = useCollection<Skill>(skillsQuery);
-
+  
+  const userIds = useMemo(() => skills ? [...new Set(skills.map(s => s.userId))] : [], [skills]);
+  
   const usersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'users');
-  }, [firestore]);
+    if(!firestore || userIds.length === 0) return null;
+    // Firestore 'in' queries are limited to 30 items. For a real-world app with more items,
+    // you might need to paginate or fetch users individually.
+    return query(collection(firestore, 'users'), where('id', 'in', userIds.slice(0, 30)));
+  }, [firestore, userIds]);
   const { data: users, isLoading: isLoadingUsers } = useCollection<UserProfile>(usersQuery);
+
 
   const handleRequestSwap = async (skill: Skill) => {
     if (!user || !firestore) {

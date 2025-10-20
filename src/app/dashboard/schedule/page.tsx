@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCollection, useFirestore, useUser, useMemoFirebase } from "@/firebase";
@@ -42,10 +42,17 @@ export default function SchedulePage() {
   }, [firestore, user]);
   const { data: scheduledSessions, isLoading: isLoadingSessions } = useCollection<ScheduledSession>(sessionsQuery);
   
+  const allParticipantIds = useMemo(() => {
+    if(!scheduledSessions) return [];
+    const ids = new Set<string>();
+    scheduledSessions.forEach(s => s.participants.forEach(p => ids.add(p)));
+    return Array.from(ids);
+  }, [scheduledSessions]);
+
   const usersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'users');
-  }, [firestore]);
+    if (!firestore || allParticipantIds.length === 0) return null;
+    return query(collection(firestore, 'users'), where('id', 'in', allParticipantIds.slice(0,30)));
+  }, [firestore, allParticipantIds]);
   const { data: users, isLoading: isLoadingUsers } = useCollection<UserProfile>(usersQuery);
 
   const sessionsForSelectedDay = scheduledSessions?.filter(session =>
