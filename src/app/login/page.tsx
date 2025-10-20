@@ -20,6 +20,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast"
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function LoginPage() {
   const auth = useAuth();
   const { user, isUserLoading } = useUser();
@@ -31,6 +33,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
+    if (!auth) return;
     setIsLoading(true);
     const provider = new GoogleAuthProvider();
     try {
@@ -48,6 +51,15 @@ export default function LoginPage() {
   };
 
   const handleEmailSignIn = async () => {
+    if (!auth) return;
+    if (!emailRegex.test(email)) {
+        toast({
+            title: "Invalid Email",
+            description: "Please enter a valid email address.",
+            variant: "destructive"
+        });
+        return;
+    }
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);

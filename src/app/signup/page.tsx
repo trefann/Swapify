@@ -22,6 +22,7 @@ import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from "@/hooks/use-toast";
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function SignupPage() {
   const auth = useAuth();
@@ -55,6 +56,7 @@ export default function SignupPage() {
   }
 
   const handleGoogleSignUp = async () => {
+    if (!auth) return;
     setIsLoading(true);
     const provider = new GoogleAuthProvider();
     try {
@@ -75,6 +77,23 @@ export default function SignupPage() {
   };
 
   const handleEmailSignUp = async () => {
+    if (!auth) return;
+    if (!emailRegex.test(email)) {
+        toast({
+            title: "Invalid Email",
+            description: "Please enter a valid email address.",
+            variant: "destructive"
+        });
+        return;
+    }
+    if (password.length < 6) {
+        toast({
+            title: "Weak Password",
+            description: "Password must be at least 6 characters long.",
+            variant: "destructive"
+        });
+        return;
+    }
     setIsLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
