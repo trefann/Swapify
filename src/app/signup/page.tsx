@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/componentsui/label"
+import { Label } from "@/components/ui/label"
 import { BookOpen } from "lucide-react"
 import Link from "next/link"
 import { Icons } from "@/components/icons"
@@ -34,7 +34,7 @@ export default function SignupPage() {
               <Input id="name" placeholder="Alex Doe" />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label> animating-in
+              <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" placeholder="m@example.com" />
             </div>
             <div className="grid gap-2">

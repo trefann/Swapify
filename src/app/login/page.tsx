@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/componentsui/label"
+import { Label } from "@/components/ui/label"
 import { BookOpen } from "lucide-react"
 import Link from "next/link"
 import { Icons } from "@/components/icons"
