@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,11 +31,11 @@ function ProfileClient() {
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   
-  useState(() => {
-      if (userProfile?.bio) {
+  useEffect(() => {
+      if (userProfile?.bio && !bio) {
         setBio(userProfile.bio);
       }
-  });
+  }, [userProfile?.bio, bio]);
 
 
   const handleGenerateBio = async () => {
