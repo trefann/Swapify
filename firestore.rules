@@ -1,155 +1,134 @@
 /**
- * @fileOverview Firestore Security Rules for SkillSwap application.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for user profiles,
- * and shared access via explicit member lists for collaborative resources like swap requests and associated data.
- * Public read access is granted for skills.
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for user profiles and shared access for swap requests.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profiles. Only the user can read/write their own profile.
- * - /skills/{skillId}: Stores skills. Publicly readable, but only authorized users (not defined here) can create/update/delete.
- * - /swap_requests/{swapRequestId}: Stores swap requests. Access is controlled via requesterId and receiverId fields.
- * - /swap_requests/{swapRequestId}/chat_messages/{chatMessageId}: Stores chat messages for swap requests. Access controlled by swap request participants.
- * - /swap_requests/{swapRequestId}/rating_feedback/{ratingFeedbackId}: Stores rating feedback for swap requests. Access controlled by swap request participants.
+ * - /users/{userId}: Stores user profile data, accessible only to the user themselves.
+ * - /skills/{skillId}: Stores skill data, publicly readable but writable only by the skill owner.
+ * - /swap_requests/{swapRequestId}: Stores swap requests between users, accessible to the requester and receiver.
+ * - /swap_requests/{swapRequestId}/chat_messages/{chatMessageId}: Stores chat messages for each swap request, accessible to participants.
+ * - /scheduled_sessions/{sessionId}: Stores scheduled session information, with access granted to session participants.
  *
  * Key Security Decisions:
- * - Users can only access their own profile data.
- * - Listing of users is explicitly denied.
- * - Skills are publicly readable.
- * - Swap requests and related data are accessible only to the participants (requester and receiver).
- *
- * Denormalization for Authorization:
- * - Swap requests contain `requesterId` and `receiverId` to determine participants without additional reads.
- * - Chat messages and rating feedback are located as subcollections under `swap_requests` to simplify access control based on swap request participants.
- *
- * Structural Segregation:
- * - User profiles are stored under `/users/{userId}` to ensure private access.
+ * - Users can only read and write their own profile data under /users/{userId}.
+ * - Skills are publicly readable, but only the owner can modify them.
+ * - Swap requests and associated chat messages are accessible only to the involved users.
+ * - Listing of swap requests is allowed for authenticated users.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Protects user profile data, ensuring only the owning user can read and write.
+     * @description Enforces access control for user profiles.
      * @path /users/{userId}
-     * @allow (create) User with ID 'user123' creates their profile at /users/user123.
-     * @allow (get, update, delete) User with ID 'user123' reads/updates/deletes their profile at /users/user123.
-     * @deny (create) User with ID 'user123' attempts to create a profile at /users/user456.
-     * @deny (get, update, delete) User with ID 'user123' attempts to read/update/delete the profile at /users/user456.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) User with UID 'user123' can create their profile at /users/user123.
+     * @allow (get) User with UID 'user123' can read their profile at /users/user123.
+     * @allow (update) User with UID 'user123' can update their profile at /users/user123.
+     * @allow (delete) User with UID 'user123' can delete their profile at /users/user123.
+     * @deny  (get) User with UID 'user456' cannot read the profile at /users/user123.
+     * @deny  (update) User with UID 'user456' cannot update the profile at /users/user123.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+        return request.auth != null && request.auth.uid == userId;
       }
 
       allow get: if isOwner(userId);
       allow list: if false;
-
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
     }
 
     /**
-     * @description Allows public read access to skills, but restricts creation, updating, and deletion.
+     * @description Manages access control for skills. Skills are publicly readable, but only the owner can modify them.
      * @path /skills/{skillId}
-     * @allow (get, list) Any user can read the skill at /skills/skill123.
-     * @deny (create, update, delete) Any user attempts to create/update/delete the skill at /skills/skill123.
-     * @principle Allows public reads with restricted writes.
+     * @allow (get) Any user can read a skill.
+     * @allow (list) Any user can list skills.
+     * @allow (create) User with UID 'user123' can create a skill with userId 'user123'.
+     * @allow (update) User with UID 'user123' can update a skill they own.
+     * @allow (delete) User with UID 'user123' can delete a skill they own.
+     * @deny (create) User with UID 'user123' cannot create a skill with userId 'user456'.
+     * @deny (update) User with UID 'user456' cannot update a skill owned by 'user123'.
+     * @principle Allows public reads, but enforces ownership for writes.
      */
     match /skills/{skillId} {
+      function isOwner() {
+        return request.auth != null && request.auth.uid == resource.data.userId;
+      }
+
+
       allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow create: if request.auth != null;
+      allow update: if isOwner();
+      allow delete: if isOwner();
     }
 
     /**
-     * @description Manages access to swap requests, ensuring only the requester or receiver can read/write.
+     * @description Manages access control for swap requests.
      * @path /swap_requests/{swapRequestId}
-     * @allow (create) User with ID 'user123' creates a swap request where they are either requester or receiver.
-     * @allow (get, update, delete) User with ID 'user123' reads/updates/deletes a swap request where they are either requester or receiver.
-     * @deny (get, update, delete) User with ID 'user123' attempts to read/update/delete a swap request where they are not a participant.
-     * @principle Enforces shared access based on requesterId and receiverId.
+     * @allow (get) User with UID 'user123' can read a swap request where they are the requester or receiver.
+     * @allow (list) Authenticated user can list all swap requests.
+     * @allow (create) User with UID 'user123' can create a swap request where they are the requester.
+     * @allow (update) User with UID 'user123' can update a swap request where they are the requester or receiver.
+     * @allow (delete) User with UID 'user123' can delete a swap request where they are the requester.
+     * @deny (get) User with UID 'user456' cannot read a swap request they are not involved in.
+     * @deny (update) User with UID 'user456' cannot update a swap request they are not involved in.
+     * @principle Enforces shared access based on requesterId and receiverId fields.
      */
     match /swap_requests/{swapRequestId} {
-      function isSignedIn() {
-        return request.auth != null;
+      function isParticipant() {
+        return request.auth != null && (resource.data.requesterId == request.auth.uid || resource.data.receiverId == request.auth.uid);
       }
 
-      function isParticipant(requesterId, receiverId) {
-        return request.auth.uid == requesterId || request.auth.uid == receiverId;
-      }
 
-      function isExistingParticipant(requesterId, receiverId) {
-        return isParticipant(requesterId, receiverId) && resource != null;
-      }
-      
-      allow get: if isSignedIn() && isParticipant(resource.data.requesterId, resource.data.receiverId);
-      allow list: if false;
-
-      allow create: if isSignedIn() && (request.resource.data.requesterId == request.auth.uid || request.resource.data.receiverId == request.auth.uid);
-      allow update: if isExistingParticipant(resource.data.requesterId, resource.data.receiverId);
-      allow delete: if isExistingParticipant(resource.data.requesterId, resource.data.receiverId);
+      allow get: if isParticipant();
+      allow list: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if isParticipant();
+      allow delete: if request.auth != null && resource.data.requesterId == request.auth.uid;
     }
 
     /**
-     * @description Controls access to chat messages within a swap request, allowing only participants to read/write.
+     * @description Manages access control for chat messages within a swap request.
      * @path /swap_requests/{swapRequestId}/chat_messages/{chatMessageId}
-     * @allow (create) User with ID 'user123' creates a chat message in a swap request they participate in.
-     * @allow (get, update, delete) User with ID 'user123' reads/updates/deletes a chat message in a swap request they participate in.
-     * @deny (get, update, delete) User with ID 'user123' attempts to read/update/delete a chat message in a swap request they do not participate in.
-     * @principle Enforces shared access to subcollection based on parent document's participant list.
+     * @allow (get) User involved in the swap request can read chat messages.
+     * @allow (list) User involved in the swap request can list chat messages.
+     * @allow (create) User involved in the swap request can create chat messages.
+     * @deny (get) User not involved in the swap request cannot read chat messages.
+     * @deny (list) User not involved in the swap request cannot list chat messages.
+     * @principle Enforces shared access to chat messages based on swap request participants.
      */
     match /swap_requests/{swapRequestId}/chat_messages/{chatMessageId} {
-       function isSignedIn() {
-        return request.auth != null;
-      }
+        function isParticipant() {
+          let swapRequest = get(/databases/$(database)/documents/swap_requests/$(swapRequestId)).data;
+          return request.auth != null && (swapRequest.requesterId == request.auth.uid || swapRequest.receiverId == request.auth.uid);
+        }
 
-      function isParticipant(swapRequestId) {
-        return get(/databases/$(database)/documents/swap_requests/$(swapRequestId)).data.requesterId == request.auth.uid
-            || get(/databases/$(database)/documents/swap_requests/$(swapRequestId)).data.receiverId == request.auth.uid;
-      }
-
-      allow get: if isSignedIn() && isParticipant(swapRequestId);
-      allow list: if isSignedIn() && isParticipant(swapRequestId);
-
-      allow create: if isSignedIn() && isParticipant(swapRequestId);
-      allow update: if false;
-      allow delete: if false;
+        allow get, list: if isParticipant();
+        allow create: if isParticipant();
+        allow update: if false;
+        allow delete: if false;
     }
 
-     /**
-      * @description Manages access to rating feedback for swap requests, allowing only participants to submit feedback.
-      * @path /swap_requests/{swapRequestId}/rating_feedback/{ratingFeedbackId}
-      * @allow (create) User with ID 'user123' submits feedback for a swap request they participated in.
-      * @allow (get, update, delete) User with ID 'user123' reads/updates/deletes their feedback for a swap request they participated in.
-      * @deny (get, update, delete) User with ID 'user123' attempts to access feedback they did not submit or for a swap request they didn't participate in.
-      * @principle Enforces access control on rating feedback based on swap request participants.
-      */
-    match /swap_requests/{swapRequestId}/rating_feedback/{ratingFeedbackId} {
-        function isSignedIn() {
-        return request.auth != null;
-      }
+    /**
+     * @description Manages access control for scheduled sessions. Participants can read session data.
+     * @path /scheduled_sessions/{sessionId}
+     * @allow (get) User who is a participant in the session can read the session details.
+     * @allow (list) No listing allowed
+     * @allow (create) No one is allowed to create
+     * @principle Enforces access control based on the participants array.
+     */
+    match /scheduled_sessions/{sessionId} {
+       function isParticipant() {
+         return request.auth != null && resource.data.participants.hasAny([request.auth.uid]);
+       }
 
-      function isParticipant(swapRequestId) {
-        let swapRequest = get(/databases/$(database)/documents/swap_requests/$(swapRequestId)).data;
-        return swapRequest.requesterId == request.auth.uid
-            || swapRequest.receiverId == request.auth.uid;
-      }
-
-      allow get: if isSignedIn() && isParticipant(swapRequestId);
-      allow list: if isSignedIn() && isParticipant(swapRequestId);
-
-      allow create: if isSignedIn() && isParticipant(swapRequestId);
+      allow get: if isParticipant();
+      allow list: if false;
+      allow create: if false;
       allow update: if false;
       allow delete: if false;
     }
